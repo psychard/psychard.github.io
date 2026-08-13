@@ -1,0 +1,169 @@
+/* psychard.com — one page, no build step, no CDN.
+   Colours live as custom properties so light and dark share every rule. */
+
+:root {
+  color-scheme: light dark;
+
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --border: #e2e6ea;
+  --text: #16191d;
+  --muted: #5c6672;
+  --accent: #2a8a63;
+  --icon-bg: #eef0f3;
+  --shadow: 0 1px 2px rgba(16, 25, 45, .05), 0 4px 14px rgba(16, 25, 45, .05);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0d11;
+    --surface: #151a21;
+    --border: #252d38;
+    --text: #e8edf5;
+    --muted: #8b97a9;
+    --accent: #7dd3a0;
+    --icon-bg: #1d232c;
+    --shadow: none;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 17px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* max() against the safe-area insets keeps content clear of the notch and the
+   rounded corners when an iPhone is held in landscape. */
+.wrap {
+  max-width: 1080px;
+  margin-inline: auto;
+  padding-block: clamp(2.5rem, 8vw, 4.5rem) 2.5rem;
+  padding-inline:
+    max(1.25rem, env(safe-area-inset-left))
+    max(1.25rem, env(safe-area-inset-right));
+  padding-bottom: max(2.5rem, env(safe-area-inset-bottom));
+}
+
+.site-title {
+  margin: 0;
+  font-size: clamp(2.25rem, 9vw, 3.25rem);
+  font-weight: 700;
+  letter-spacing: -.02em;
+  line-height: 1.1;
+}
+
+.tagline {
+  margin: .5rem 0 0;
+  color: var(--muted);
+  font-size: 1.0625rem;
+}
+
+.section-heading {
+  margin: clamp(2.25rem, 7vw, 3.25rem) 0 0;
+  font-size: .8125rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* auto-fill + minmax does the responsiveness on its own: one column on a
+   phone, two or three once there is room, with no breakpoints to maintain. */
+.games {
+  list-style: none;
+  margin: .875rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+}
+
+.card {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  align-items: center;
+  gap: 1rem;
+  height: 100%;
+  padding: .875rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color .15s ease, transform .15s ease;
+}
+
+/* The tile behind each icon matters: Office Hop's art is black-on-white and
+   would vanish into the light theme, while the other four are dark-backed and
+   would vanish into the dark one. A bordered tile gives all five an edge. */
+.card__icon {
+  display: block;
+  width: 72px;
+  height: 72px;
+  border-radius: 22.5%;
+  background: var(--icon-bg);
+  border: 1px solid var(--border);
+}
+
+.card__name {
+  display: block;
+  font-weight: 600;
+  letter-spacing: -.01em;
+}
+
+.card__desc {
+  display: block;
+  margin-top: .15rem;
+  color: var(--muted);
+  font-size: .9375rem;
+  line-height: 1.4;
+}
+
+@media (hover: hover) {
+  .card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.site-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1.5rem;
+  margin-top: clamp(2.5rem, 8vw, 4rem);
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  font-size: .9375rem;
+}
+
+.site-footer a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.site-footer a:hover { color: var(--text); text-decoration: underline; }
+
+.site-footer a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card { transition: none; }
+  .card:hover { transform: none; }
+}

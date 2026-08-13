@@ -1,16 +1,114 @@
----
-layout: withfooter
-title: Baby Girl Psychard
----
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
+<title>Psychard — small games, mostly for phones</title>
+<meta name="description" content="Games made by the Psychard family: a bouldering puzzle, a violin scales trainer, a chemo shooter, an office platformer and a Bohlen-Pierce sequencer.">
+<link rel="canonical" href="https://psychard.com/">
 
-<div id="home">
+<meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0d11" media="(prefers-color-scheme: dark)">
 
-  <img src="/images/baby.jpg" width = "100%" alt="Baby Psychard"/>
-  <div style="padding: 2em;">
-  <h1>Baby Psychard!</h1>
-  We are pleased to announce the arrival of Baby Girl Psychard,<br/>
-  on Monday the 1st of June, 2015, weighing 7lb 13oz (3.55 kg),<br/>
-  and measuring 20 inches (51 cm). Mum, dad, and baby are all doing well.
-  </div>
+<link rel="icon" href="/icons/psychard.svg" type="image/svg+xml">
+<link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://psychard.com/">
+<meta property="og:title" content="Psychard">
+<meta property="og:description" content="Small games, mostly for phones.">
+<meta property="og:image" content="https://psychard.com/icons/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <h1 class="site-title">Psychard</h1>
+    <p class="tagline">Small games, mostly for phones.</p>
+  </header>
+
+  <main>
+    <h2 class="section-heading">Games</h2>
+
+    <!-- ─────────────────────────────────────────────────────────────────────
+         To add a game: copy one <li> block, change the link, icon, name and
+         description, and drop a square PNG (180×180 is plenty) into /icons/.
+         Nothing else needs touching — the grid reflows on its own.
+         ───────────────────────────────────────────────────────────────────── -->
+    <ul class="games">
+
+      <li>
+        <a class="card" href="https://climb.psychard.com/">
+          <img class="card__icon" src="/icons/climb.png" alt="" width="180" height="180">
+          <span class="card__text">
+            <span class="card__name">Climb</span>
+            <span class="card__desc">Drag a stick figure's hands and feet up a bouldering wall before your stamina runs out.</span>
+          </span>
+        </a>
+      </li>
+
+      <li>
+        <a class="card" href="https://rwest.github.io/scales-tuner/">
+          <img class="card__icon" src="/icons/scales.png" alt="" width="180" height="180">
+          <span class="card__text">
+            <span class="card__name">Scales</span>
+            <span class="card__desc">Practise violin scales, scored on how well you play in tune.</span>
+          </span>
+        </a>
+      </li>
+
+      <li>
+        <a class="card" href="https://psycheloui.github.io/Cell-blaster/cell-blaster.html">
+          <img class="card__icon" src="/icons/cycle-blaster.png" alt="" width="180" height="180">
+          <span class="card__text">
+            <span class="card__name">Cycle Blaster</span>
+            <span class="card__desc">A shooter about surviving chemotherapy.</span>
+          </span>
+        </a>
+      </li>
+
+      <li>
+        <a class="card" href="https://psycheloui.github.io/Cell-blaster/office-hop.html">
+          <img class="card__icon" src="/icons/office-hop.png" alt="" width="180" height="180">
+          <span class="card__text">
+            <span class="card__name">Office Hop</span>
+            <span class="card__desc">Clear a never-ending to-do list that gets more ridiculous the longer you last.</span>
+          </span>
+        </a>
+      </li>
+
+      <li>
+        <a class="card" href="https://psycheloui.github.io/Cell-blaster/bp-sequencer.html">
+          <img class="card__icon" src="/icons/tritave.png" alt="" width="180" height="180">
+          <span class="card__text">
+            <span class="card__name">Tritave</span>
+            <span class="card__desc">Sequence music in the Bohlen-Pierce scale, built on the tritave instead of the octave.</span>
+          </span>
+        </a>
+      </li>
+
+    </ul>
+    <!-- ───────────────────────────────── end of games ────────────────────── -->
+
+    <!-- Merch goes here when the Printful store is ready. Same pattern:
+         <h2 class="section-heading">Merch</h2> followed by a <ul class="games">. -->
+  </main>
+
+  <footer class="site-footer">
+    <a href="https://psycheloui.com/">psycheloui.com</a>
+    <a href="https://github.com/rwest">github.com/rwest</a>
+    <a href="mailto:both@psychard.com">both@psychard.com</a>
+  </footer>
+
 </div>
+
+</body>
+</html>
