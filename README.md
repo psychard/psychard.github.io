@@ -37,9 +37,32 @@ there is no Jekyll build involved — files are served exactly as committed.
 
 ## Domain
 
-`CNAME` holds the custom domain. DNS is at GoDaddy, and there is a wildcard
+`CNAME` holds the custom domain, currently `www.psychard.com`, served over
+HTTPS with enforcement on. DNS is at GoDaddy, and there is a wildcard
 `*.psychard.com → psychard.github.io` record, which is how `climb.psychard.com`
 works from its own repo.
+
+### Moving to the apex, psychard.com
+
+Not done yet — it needs a DNS change first. At GoDaddy, delete the forwarding
+rule on `psychard.com` and add, for `@`:
+
+- **A** → `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`
+- **AAAA** → `2606:50c0:8000::153`, `2606:50c0:8001::153`, `2606:50c0:8002::153`, `2606:50c0:8003::153`
+
+Once `dig +short psychard.com A` returns those four addresses, change `CNAME`
+and the three absolute URLs in `index.html` (`canonical`, `og:url`, `og:image`)
+from `www.psychard.com` to `psychard.com`, then:
+
+```sh
+gh api -X PUT repos/psychard/psychard.github.io/pages -f cname=psychard.com
+# wait for .https_certificate.state to reach "approved", then:
+gh api -X PUT repos/psychard/psychard.github.io/pages -F https_enforced=true
+```
+
+GitHub redirects `www` → apex automatically once both records exist. Do not
+set `CNAME` to the apex before the A records are in place — that takes the
+site down.
 
 Note that `scales.psychard.com` resolves but 404s: the wildcard points it here,
 but `scales-tuner` lives under `rwest`, so no repo claims that hostname. To fix,
