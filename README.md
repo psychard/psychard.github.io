@@ -1,4 +1,4 @@
-# psychard.com
+# [psychard.com](https://psychard.com/)
 
 The family landing page. One static HTML file, one stylesheet, a folder of
 icons. No build step, no dependencies, nothing to install.
