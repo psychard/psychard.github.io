@@ -11,6 +11,13 @@ icons. No build step, no dependencies, nothing to install.
    block, and change the link, icon path, name and description.
 
 
+## Apps hosted here
+
+Some games live in this repo rather than elsewhere: a folder with an
+`index.html` inside, served at `https://www.psychard.com/<folder>/`. `tilt/` is
+one. Anything needing a phone sensor (motion, camera, mic) has to be served
+over HTTPS, which this domain is, so hosting it here is the easy route.
+
 ## Deploys
 
 Push to `main` and it is live in about a minute. 

@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0d10">
+<title>Tilt — Psychard</title>
+<meta name="description" content="Tilt your phone to roll a ball across eight colours. Every colour is a note of the D major scale; the tone bends as the ball rolls between them.">
+<link rel="canonical" href="https://www.psychard.com/tilt/">
+<link rel="icon" href="/icons/psychard.svg" type="image/svg+xml">
+<link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/icons/tilt.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tilt">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.psychard.com/tilt/">
+<meta property="og:title" content="Tilt">
+<meta property="og:description" content="Tilt your phone to roll a ball across eight notes of the D major scale.">
+<meta property="og:image" content="https://www.psychard.com/icons/og.png">
+<style>
+  :root{
+    --c1:#ff2f6d; --c2:#ff8a00; --c3:#ffd400; --c4:#3ddc84;
+    --c5:#00b3a4; --c6:#2d7bff; --c7:#7b4dff; --c8:#ff5fd2;
+    --ink:#111114;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0;overflow:hidden;background:#0d0d10}
+  body{
+    font-family:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    touch-action:none;overscroll-behavior:none;position:fixed;inset:0;
+  }
+
+  #field{position:absolute;inset:-14%;filter:blur(34px) saturate(1.12)}
+  .blob{position:absolute;border-radius:52% 48% 43% 57% / 47% 55% 45% 53%}
+  .b1{background:var(--c1);left:-8%;top:-6%;width:62%;height:34%}
+  .b2{background:var(--c2);left:44%;top:-9%;width:64%;height:31%;border-radius:60% 40% 55% 45% / 55% 50% 50% 45%}
+  .b3{background:var(--c3);left:-10%;top:21%;width:58%;height:30%;border-radius:45% 55% 60% 40% / 50% 45% 55% 50%}
+  .b4{background:var(--c4);left:41%;top:19%;width:67%;height:29%}
+  .b5{background:var(--c5);left:-9%;top:45%;width:60%;height:31%;border-radius:55% 45% 40% 60% / 45% 55% 45% 55%}
+  .b6{background:var(--c6);left:43%;top:43%;width:65%;height:33%}
+  .b7{background:var(--c7);left:-11%;top:69%;width:63%;height:39%;border-radius:50% 50% 45% 55% / 55% 45% 55% 45%}
+  .b8{background:var(--c8);left:42%;top:71%;width:66%;height:37%}
+
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+  #gate{
+    position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:22px;
+    background:rgba(10,10,14,.42);backdrop-filter:blur(3px);
+    -webkit-backdrop-filter:blur(3px);
+  }
+  #gate .lead{
+    margin:0;color:#fff;font-size:19px;line-height:1.5;
+    text-align:center;max-width:16ch;text-shadow:0 1px 14px rgba(0,0,0,.45)
+  }
+  #gate .sub{
+    margin:0;color:#fff;opacity:.72;font-size:14px;line-height:1.5;
+    text-align:center;max-width:24ch;text-shadow:0 1px 12px rgba(0,0,0,.5)
+  }
+  #gate .home{
+    position:absolute;bottom:calc(18px + env(safe-area-inset-bottom));
+    color:#fff;opacity:.55;font-size:13px;text-decoration:none;
+    text-shadow:0 1px 10px rgba(0,0,0,.5)
+  }
+  button{
+    font:inherit;font-size:16px;color:var(--ink);background:#fff;
+    border:0;border-radius:999px;padding:15px 30px;cursor:pointer;
+    box-shadow:0 8px 26px rgba(0,0,0,.3);
+  }
+  button:active{transform:translateY(1px)}
+  button:focus-visible{outline:3px solid #fff;outline-offset:4px}
+  #controls{
+    position:absolute;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));
+    display:none;gap:8px;
+  }
+  #controls button{
+    padding:10px 16px;font-size:14px;background:rgba(255,255,255,.82);
+    box-shadow:0 4px 16px rgba(0,0,0,.22);
+  }
+  #hint{
+    position:absolute;left:14px;right:14px;
+    bottom:calc(66px + env(safe-area-inset-bottom));
+    color:#fff;font-size:13px;line-height:1.45;opacity:.78;
+    text-shadow:0 1px 10px rgba(0,0,0,.55);display:none;pointer-events:none;margin:0
+  }
+  .hidden{display:none !important}
+</style>
+</head>
+<body>
+
+<div id="field">
+  <div class="blob b1"></div><div class="blob b2"></div>
+  <div class="blob b3"></div><div class="blob b4"></div>
+  <div class="blob b5"></div><div class="blob b6"></div>
+  <div class="blob b7"></div><div class="blob b8"></div>
+</div>
+
+<canvas id="stage"></canvas>
+
+<div id="controls">
+  <button id="sound">Sound off</button>
+  <button id="recenter">Recenter</button>
+</div>
+<p id="hint">No tilt sensor available here. Press and hold anywhere; the surface tips toward your finger and levels off when you let go.</p>
+
+<div id="gate">
+  <p class="lead">Hold the phone flat, then tilt to roll the ball.</p>
+  <p class="sub">Every color is a note of the D major scale. Roll between colors to bend between notes.</p>
+  <button id="go">Start</button>
+  <a class="home" href="/">psychard.com</a>
+</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+  const gate = document.getElementById('gate');
+  const goBtn = document.getElementById('go');
+  const controls = document.getElementById('controls');
+  const soundBtn = document.getElementById('sound');
+  const recenterBtn = document.getElementById('recenter');
+  const hint = document.getElementById('hint');
+
+  let W = 0, H = 0, R = 24;
+  const ball = { x:0, y:0, vx:0, vy:0 };
+
+  // one note per splotch, D major from D4 up to the octave
+  const BASE = 293.6648;
+  const NOTES = [
+    {n:'D',  s:0},  {n:'E',  s:2},  {n:'F\u266F', s:4},  {n:'G', s:5},
+    {n:'A',  s:7},  {n:'B',  s:9},  {n:'C\u266F', s:11}, {n:'D', s:12}
+  ];
+  const HUES = ['#ff2f6d','#ff8a00','#ffd400','#3ddc84','#00b3a4','#2d7bff','#7b4dff','#ff5fd2']
+    .map(h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)]);
+
+  let centers = [];
+  const wts = new Array(8).fill(0);
+  let semi = 0, domIdx = 0, domW = 0;
+
+  let M = [1,0,0, 0,1,0, 0,0,1];
+  const dots = [];
+  (function seedDots(){
+    const n = 26, off = 2/n, inc = Math.PI * (3 - Math.sqrt(5));
+    for (let i=0;i<n;i++){
+      const y = i*off - 1 + off/2;
+      const r = Math.sqrt(Math.max(0,1-y*y));
+      const phi = i*inc;
+      dots.push([Math.cos(phi)*r, y, Math.sin(phi)*r]);
+    }
+  })();
+
+  function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+
+  function measure(){
+    centers = Array.prototype.map.call(document.querySelectorAll('.blob'), el => {
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width/2, y: r.top + r.height/2 };
+    });
+  }
+
+  function resize(){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.round(W*dpr); canvas.height = Math.round(H*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    R = Math.max(15, Math.min(W,H) * 0.058);
+    ball.x = clamp(ball.x || W/2, R, W-R);
+    ball.y = clamp(ball.y || H/2, R, H-R);
+    measure();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---- where the ball sits between the eight colors ---------------------
+  function mixNotes(){
+    if (!centers.length) return;
+    const eps = Math.min(W,H) * 0.012;
+    let tot = 0;
+    for (let i=0;i<8;i++){
+      const dx = ball.x - centers[i].x, dy = ball.y - centers[i].y;
+      const d = Math.sqrt(dx*dx + dy*dy) + eps;
+      const w = 1/(d*d*d*d);          // steep, so sitting on a color gives that note cleanly
+      wts[i] = w; tot += w;
+    }
+    let acc = 0; domW = 0; domIdx = 0;
+    for (let i=0;i<8;i++){
+      wts[i] /= tot;
+      acc += wts[i] * NOTES[i].s;
+      if (wts[i] > domW){ domW = wts[i]; domIdx = i; }
+    }
+    semi = acc;
+  }
+  function currentFreq(){ return BASE * Math.pow(2, semi/12); }
+  function mixedColor(){
+    let r=0,g=0,b=0;
+    for (let i=0;i<8;i++){ r += HUES[i][0]*wts[i]; g += HUES[i][1]*wts[i]; b += HUES[i][2]*wts[i]; }
+    return [r|0, g|0, b|0];
+  }
+
+  // ---- sound ------------------------------------------------------------
+  let AC = null, master = null, voice = null, shimmer = null, tone = null, lpf = null;
+  let audioOn = false;
+
+  function buildAudio(){
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return false;
+    AC = new Ctor();
+    master = AC.createGain();
+    master.gain.value = 0;
+    lpf = AC.createBiquadFilter();
+    lpf.type = 'lowpass'; lpf.frequency.value = 2400; lpf.Q.value = 0.6;
+
+    voice = AC.createOscillator();   voice.type = 'sine';
+    shimmer = AC.createOscillator(); shimmer.type = 'triangle';
+    const shGain = AC.createGain();  shGain.gain.value = 0.13;
+
+    const lfo = AC.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 5.2;
+    const lfoGain = AC.createGain();   lfoGain.gain.value = 4;   // cents of vibrato
+    lfo.connect(lfoGain);
+    lfoGain.connect(voice.detune);
+    lfoGain.connect(shimmer.detune);
+
+    voice.connect(lpf);
+    shimmer.connect(shGain); shGain.connect(lpf);
+    lpf.connect(master);
+    master.connect(AC.destination);
+
+    const f = currentFreq();
+    voice.frequency.value = f;
+    shimmer.frequency.value = f*2;
+    voice.start(); shimmer.start(); lfo.start();
+    tone = { voice, shimmer };
+    return true;
+  }
+
+  function setAudio(on){
+    audioOn = on;
+    soundBtn.textContent = on ? 'Sound on' : 'Sound off';
+    if (!AC) return;
+    if (on && AC.state === 'suspended') AC.resume();
+    master.gain.setTargetAtTime(on ? 0.16 : 0, AC.currentTime, 0.08);
+  }
+
+  function updateTone(){
+    if (!AC || !audioOn) return;
+    const t = AC.currentTime;
+    const f = currentFreq();
+    voice.frequency.setTargetAtTime(f, t, 0.035);
+    shimmer.frequency.setTargetAtTime(f*2, t, 0.035);
+    const speed = Math.hypot(ball.vx, ball.vy);
+    lpf.frequency.setTargetAtTime(1500 + Math.min(2200, speed*2.2), t, 0.08);
+    master.gain.setTargetAtTime(0.13 + Math.min(0.07, speed/1400*0.07), t, 0.1);
+  }
+
+  function knock(strength){
+    if (!AC || !audioOn) return;
+    const t = AC.currentTime;
+    const o = AC.createOscillator(); o.type = 'triangle';
+    o.frequency.value = currentFreq() * 2;
+    const g = AC.createGain();
+    const peak = Math.min(0.22, strength/900 * 0.22);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.008, peak), t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + 0.18);
+  }
+
+  soundBtn.addEventListener('click', () => {
+    if (!AC && !buildAudio()) { soundBtn.disabled = true; soundBtn.textContent = 'No sound'; return; }
+    setAudio(!audioOn);
+  });
+
+  // ---- tilt input -------------------------------------------------------
+  const MAX_TILT = 30;
+  let tiltX = 0, tiltY = 0, zeroX = 0, zeroY = 0;
+  let haveSensor = false, pendingZero = true, denied = false;
+  let touchMode = false, touchBound = false, touching = false;
+  let targetX = 0, targetY = 0;
+
+  function screenAngle(){
+    if (screen.orientation && typeof screen.orientation.angle === 'number') return screen.orientation.angle;
+    return (typeof window.orientation === 'number') ? window.orientation : 0;
+  }
+
+  function onOrient(e){
+    if (e.beta === null || e.gamma === null) return;
+    if (!haveSensor){ haveSensor = true; touchMode = false; hint.style.display = 'none'; }
+    let gx, gy;
+    const a = ((screenAngle() % 360) + 360) % 360;
+    if (a === 90)       { gx =  e.beta;  gy = -e.gamma; }
+    else if (a === 180) { gx = -e.gamma; gy = -e.beta;  }
+    else if (a === 270) { gx = -e.beta;  gy =  e.gamma; }
+    else                { gx =  e.gamma; gy =  e.beta;  }
+    if (pendingZero){ zeroX = gx; zeroY = gy; pendingZero = false; }
+    tiltX = clamp(gx - zeroX, -50, 50);
+    tiltY = clamp(gy - zeroY, -50, 50);
+  }
+
+  function setTarget(ev){
+    targetX = clamp(((ev.clientX - W/2) / (W/2)) * MAX_TILT, -MAX_TILT, MAX_TILT);
+    targetY = clamp(((ev.clientY - H/2) / (H/2)) * MAX_TILT, -MAX_TILT, MAX_TILT);
+  }
+  function bindTouch(){
+    if (touchBound) return;
+    touchBound = true;
+    window.addEventListener('pointerdown', e => {
+      if (e.target.tagName === 'BUTTON') return;
+      touching = true; setTarget(e);
+    });
+    window.addEventListener('pointermove', e => { if (touching) setTarget(e); });
+    const release = () => { touching = false; targetX = 0; targetY = 0; };
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+    window.addEventListener('keydown', e => {
+      if (e.key === 'ArrowLeft')  { targetX = -22; touching = true; }
+      if (e.key === 'ArrowRight') { targetX =  22; touching = true; }
+      if (e.key === 'ArrowUp')    { targetY = -22; touching = true; }
+      if (e.key === 'ArrowDown')  { targetY =  22; touching = true; }
+    });
+    window.addEventListener('keyup', e => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') targetX = 0;
+      if (e.key === 'ArrowUp'   || e.key === 'ArrowDown')  targetY = 0;
+    });
+  }
+  function enableTouchMode(){
+    if (haveSensor) return;
+    if (denied) hint.textContent = 'Motion access was turned down, so tilt is off. Press and hold anywhere; the surface tips toward your finger and levels off when you let go.';
+    touchMode = true; hint.style.display = 'block'; bindTouch();
+  }
+
+  async function start(){
+    gate.classList.add('hidden');
+    controls.style.display = 'flex';
+    mixNotes();
+    if (buildAudio()) setAudio(true); else { soundBtn.disabled = true; soundBtn.textContent = 'No sound'; }
+
+    const DOE = window.DeviceOrientationEvent;
+    let asked = false;
+    if (DOE && typeof DOE.requestPermission === 'function'){
+      try {
+        const res = await DOE.requestPermission();
+        if (res === 'granted'){ window.addEventListener('deviceorientation', onOrient, true); asked = true; }
+        else denied = true;
+      } catch(_) { denied = true; }
+    } else if (DOE){
+      window.addEventListener('deviceorientation', onOrient, true);
+      asked = true;
+    }
+    setTimeout(() => { if (!haveSensor) enableTouchMode(); }, asked ? 600 : 0);
+  }
+  goBtn.addEventListener('click', start);
+  recenterBtn.addEventListener('click', () => {
+    pendingZero = true;
+    tiltX = tiltY = targetX = targetY = 0;
+    ball.vx = ball.vy = 0; ball.x = W/2; ball.y = H/2;
+  });
+
+  // ---- physics ----------------------------------------------------------
+  const G = 1650, ROLL = 5/7, DEAD = 0.9, BOUNCE = 0.52, DRAG = 0.9;
+
+  function step(dt){
+    if (touchMode){
+      const k = 1 - Math.exp(-9 * dt);
+      tiltX += (targetX - tiltX) * k;
+      tiltY += (targetY - tiltY) * k;
+      if (!touching && Math.abs(tiltX) < 0.4) tiltX = 0;
+      if (!touching && Math.abs(tiltY) < 0.4) tiltY = 0;
+    }
+
+    const ax = Math.abs(tiltX) < DEAD ? 0 : ROLL * G * Math.sin(tiltX * Math.PI/180);
+    const ay = Math.abs(tiltY) < DEAD ? 0 : ROLL * G * Math.sin(tiltY * Math.PI/180);
+
+    ball.vx += ax * dt; ball.vy += ay * dt;
+    const damp = Math.exp(-DRAG * dt);
+    ball.vx *= damp; ball.vy *= damp;
+    if (ax === 0 && Math.abs(ball.vx) < 5) ball.vx = 0;
+    if (ay === 0 && Math.abs(ball.vy) < 5) ball.vy = 0;
+
+    const px = ball.x, py = ball.y;
+    ball.x += ball.vx * dt; ball.y += ball.vy * dt;
+
+    let hit = 0;
+    if (ball.x < R){   hit = Math.abs(ball.vx); ball.x = R;   ball.vx =  Math.abs(ball.vx) * BOUNCE; }
+    if (ball.x > W-R){ hit = Math.abs(ball.vx); ball.x = W-R; ball.vx = -Math.abs(ball.vx) * BOUNCE; }
+    if (ball.y < R){   hit = Math.max(hit, Math.abs(ball.vy)); ball.y = R;   ball.vy =  Math.abs(ball.vy) * BOUNCE; }
+    if (ball.y > H-R){ hit = Math.max(hit, Math.abs(ball.vy)); ball.y = H-R; ball.vy = -Math.abs(ball.vy) * BOUNCE; }
+    if (hit > 90) knock(hit);
+
+    spin(ball.x - px, ball.y - py);
+  }
+
+  function spin(dx, dy){
+    const d = Math.hypot(dx, dy);
+    if (d < 0.0001) return;
+    const ang = d / R;
+    const ux = dy/d, uy = -dx/d, uz = 0;
+    const c = Math.cos(ang), s = Math.sin(ang), t = 1-c;
+    const A = [
+      t*ux*ux + c,    t*ux*uy,        t*ux*uz + s*uy,
+      t*ux*uy,        t*uy*uy + c,    t*uy*uz - s*ux,
+      t*ux*uz - s*uy, t*uy*uz + s*ux, c
+    ];
+    const B = M, out = new Array(9);
+    for (let r=0;r<3;r++) for (let col=0;col<3;col++){
+      out[r*3+col] = A[r*3]*B[col] + A[r*3+1]*B[3+col] + A[r*3+2]*B[6+col];
+    }
+    M = out;
+  }
+
+  // ---- render -----------------------------------------------------------
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const lean = Math.min(1, Math.hypot(tiltX, tiltY)/40);
+    const sx = ball.x + (tiltX/40) * R * 0.5;
+    const sy = ball.y + (tiltY/40) * R * 0.5 + R*0.14;
+    const col = mixedColor();
+    const rgb = col[0]+','+col[1]+','+col[2];
+
+    ctx.save();
+    ctx.globalAlpha = 0.3 - lean*0.08;
+    ctx.fillStyle = '#000';
+    ctx.filter = 'blur(' + (R*0.28).toFixed(1) + 'px)';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy, R*1.02, R*0.94, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    // halo in the note's own color
+    ctx.save();
+    const halo = ctx.createRadialGradient(ball.x, ball.y, R*0.85, ball.x, ball.y, R*2.0);
+    halo.addColorStop(0, 'rgba('+rgb+',0.5)');
+    halo.addColorStop(1, 'rgba('+rgb+',0)');
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, R*2.0, 0, Math.PI*2);
+    ctx.fillStyle = halo;
+    ctx.fill();
+    ctx.restore();
+
+    const g = ctx.createRadialGradient(
+      ball.x - R*0.35, ball.y - R*0.4, R*0.08,
+      ball.x, ball.y, R*1.06
+    );
+    g.addColorStop(0,   '#5c5f6b');
+    g.addColorStop(0.42,'#26272e');
+    g.addColorStop(1,   '#0c0c10');
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, R, 0, Math.PI*2);
+    ctx.fillStyle = g;
+    ctx.fill();
+
+    ctx.save();
+    ctx.clip();
+    for (const p of dots){
+      const z = M[6]*p[0] + M[7]*p[1] + M[8]*p[2];
+      if (z <= 0.05) continue;
+      const x = M[0]*p[0] + M[1]*p[1] + M[2]*p[2];
+      const y = M[3]*p[0] + M[4]*p[1] + M[5]*p[2];
+      ctx.beginPath();
+      ctx.arc(ball.x + x*R*0.9, ball.y + y*R*0.9, R*0.085*z + R*0.02, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.16*z).toFixed(3) + ')';
+      ctx.fill();
+    }
+    ctx.restore();
+
+    ctx.save();
+    ctx.globalAlpha = 0.75;
+    const h = ctx.createRadialGradient(
+      ball.x - R*0.34, ball.y - R*0.4, 0,
+      ball.x - R*0.34, ball.y - R*0.4, R*0.62
+    );
+    h.addColorStop(0, 'rgba(255,255,255,.9)');
+    h.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, R, 0, Math.PI*2);
+    ctx.fillStyle = h;
+    ctx.fill();
+    ctx.restore();
+
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, R-0.6, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(255,255,255,.24)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // the note name surfaces only once you settle onto a single color
+    const a = clamp((domW - 0.7) / 0.22, 0, 1);
+    if (a > 0.01){
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.font = '600 ' + (R*0.95).toFixed(0) + 'px "Helvetica Neue",Helvetica,Arial,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = '#fff';
+      ctx.shadowColor = 'rgba(0,0,0,.45)';
+      ctx.shadowBlur = 10;
+      ctx.fillText(NOTES[domIdx].n, ball.x, ball.y - R*1.5);
+      ctx.restore();
+    }
+  }
+
+  let last = performance.now();
+  function frame(now){
+    let dt = Math.min((now - last)/1000, 1/30);
+    last = now;
+    for (let i=0;i<2;i++) step(dt/2);
+    mixNotes();
+    updateTone();
+    draw();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  document.addEventListener('visibilitychange', () => {
+    if (!AC) return;
+    if (document.hidden) AC.suspend();
+    else if (audioOn) AC.resume();
+  });
+
+  document.addEventListener('touchmove', e => e.preventDefault(), {passive:false});
+})();
+</script></body></html>
