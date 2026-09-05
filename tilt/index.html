@@ -4,19 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0d0d10">
-<title>Tilt — Psychard</title>
+<title>Tilt Ball — Psychard</title>
 <meta name="description" content="Tilt your phone to roll a ball across eight colours. Every colour is a note of the D major scale; pick the instrument that plays them.">
 <link rel="canonical" href="https://www.psychard.com/tilt/">
+<link rel="manifest" href="/tilt/manifest.json">
 <link rel="icon" href="/icons/psychard.svg" type="image/svg+xml">
 <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/icons/tilt.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Tilt">
+<meta name="apple-mobile-web-app-title" content="Tilt Ball">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://www.psychard.com/tilt/">
-<meta property="og:title" content="Tilt">
+<meta property="og:title" content="Tilt Ball">
 <meta property="og:description" content="Tilt your phone to roll a ball across eight notes of the D major scale.">
 <meta property="og:image" content="https://www.psychard.com/icons/og.png">
 <style>
@@ -94,6 +95,11 @@
     background:#fff;color:var(--ink);border-color:#fff;
     box-shadow:0 4px 16px rgba(0,0,0,.28);
   }
+  #enable{
+    display:none;margin:0 auto 10px;padding:10px 18px;font-size:14px;
+    border-radius:999px;background:#fff;color:var(--ink);
+    box-shadow:0 4px 16px rgba(0,0,0,.28);
+  }
   #hint{
     margin:0 0 10px;padding:0 2px;text-align:center;
     color:#fff;font-size:13px;line-height:1.45;opacity:.78;
@@ -116,6 +122,7 @@
 <button id="recenter">Recenter</button>
 
 <div id="rack">
+  <button id="enable">Enable tilt</button>
   <p id="hint">No tilt sensor available here. Press and hold anywhere; the surface tips toward your finger and levels off when you let go.</p>
   <div class="row">
     <button class="voice" data-v="violin">Violin</button>
@@ -143,6 +150,7 @@
   const goBtn = document.getElementById('go');
   const rack = document.getElementById('rack');
   const recenterBtn = document.getElementById('recenter');
+  const enableBtn = document.getElementById('enable');
   const hint = document.getElementById('hint');
 
   let W = 0, H = 0, R = 24;
@@ -233,6 +241,14 @@
     percussion:{ kind:'struck', partials:[{t:'sine',g:0.7,m:1},{t:'sine',g:0.22,m:4},{t:'sine',g:0.08,m:9.2}],
               decay:0.42, attack:0.002, cutoff:5200, level:0.34, gap:90, click:true }
   };
+
+  const VOICE_KEY = 'tilt-ball.voice';
+  function savedVoice(){
+    let v = null;
+    try { v = localStorage.getItem(VOICE_KEY); } catch(_) {}
+    // a remembered mute would look like a broken app on the next visit
+    return (v && v !== 'off' && KIT[v]) ? v : 'violin';
+  }
 
   let AC = null, master = null, noiseBuf = null;
   let voice = 'violin';
@@ -335,6 +351,7 @@
 
   function selectVoice(name){
     voice = name;
+    if (name !== 'off'){ try { localStorage.setItem(VOICE_KEY, name); } catch(_) {} }
     Array.prototype.forEach.call(document.querySelectorAll('.voice'), b => {
       b.setAttribute('aria-pressed', String(b.dataset.v === name));
     });
@@ -403,7 +420,11 @@
   }
   function onOrient(e){
     if (e.beta === null || e.gamma === null) return;
-    if (!haveSensor){ haveSensor = true; touchMode = false; hint.style.display = 'none'; }
+    if (!haveSensor){
+      haveSensor = true; touchMode = false;
+      hint.style.display = 'none';
+      enableBtn.style.display = 'none';
+    }
     let gx, gy;
     const a = ((screenAngle() % 360) + 360) % 360;
     if (a === 90)       { gx =  e.beta;  gy = -e.gamma; }
@@ -442,32 +463,59 @@
   }
   function enableTouchMode(){
     if (haveSensor) return;
-    if (denied) hint.textContent = 'Motion access was turned down, so tilt is off. Press and hold anywhere; the surface tips toward your finger and levels off when you let go.';
+    if (denied){
+      hint.textContent = DECLINED;
+      enableBtn.style.display = 'block';
+    }
     touchMode = true; hint.style.display = 'block'; bindTouch();
   }
+
+  // Safari only hands out motion data after an explicit yes, and only from
+  // inside a user gesture, so this has to be callable again from a button.
+  async function askMotion(){
+    const DOE = window.DeviceOrientationEvent;
+    if (!DOE) return false;
+    if (typeof DOE.requestPermission !== 'function'){
+      window.addEventListener('deviceorientation', onOrient, true);
+      return true;
+    }
+    let res = 'denied';
+    try { res = await DOE.requestPermission(); } catch(_) {}
+    if (res === 'granted'){
+      window.addEventListener('deviceorientation', onOrient, true);
+      denied = false;
+      return true;
+    }
+    denied = true;
+    return false;
+  }
+
+  const NO_SENSOR = hint.textContent;
+  const DECLINED  = 'Motion access was turned down, so tilt is off. Use the button above, or press and hold anywhere to tip the surface toward your finger.';
+  const STUCK     = 'Safari is still refusing motion access. Reload the page to be asked again, or switch on Settings \u203A Safari \u203A Motion & Orientation Access.';
+
+  enableBtn.addEventListener('click', async () => {
+    enableBtn.disabled = true;
+    const ok = await askMotion();
+    setTimeout(() => {
+      enableBtn.disabled = false;
+      if (haveSensor) return;                 // onOrient hides the button itself
+      hint.textContent = ok ? NO_SENSOR : STUCK;
+      hint.style.display = 'block';
+    }, ok ? 700 : 0);
+  });
 
   async function start(){
     gate.classList.add('hidden');
     rack.style.display = 'block';
     recenterBtn.style.display = 'block';
     mixNotes();
-    if (initAudio()) selectVoice('violin');
+    if (initAudio()) selectVoice(savedVoice());
     else {
       Array.prototype.forEach.call(document.querySelectorAll('.voice'), b => { b.disabled = true; });
     }
 
-    const DOE = window.DeviceOrientationEvent;
-    let asked = false;
-    if (DOE && typeof DOE.requestPermission === 'function'){
-      try {
-        const res = await DOE.requestPermission();
-        if (res === 'granted'){ window.addEventListener('deviceorientation', onOrient, true); asked = true; }
-        else denied = true;
-      } catch(_) { denied = true; }
-    } else if (DOE){
-      window.addEventListener('deviceorientation', onOrient, true);
-      asked = true;
-    }
+    const asked = await askMotion();
     setTimeout(() => { if (!haveSensor) enableTouchMode(); }, asked ? 600 : 0);
   }
   goBtn.addEventListener('click', start);

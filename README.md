@@ -14,7 +14,7 @@ icons. No build step, no dependencies, nothing to install.
 ## Apps hosted here
 
 Some games live in this repo rather than elsewhere: a folder with an
-`index.html` inside, served at `https://www.psychard.com/<folder>/`. `tilt/` is
+`index.html` inside, served at `https://www.psychard.com/<folder>/`. `tilt/` (Tilt Ball) is
 one. Anything needing a phone sensor (motion, camera, mic) has to be served
 over HTTPS, which this domain is, so hosting it here is the easy route.
 
