@@ -359,20 +359,25 @@
     }
   }
 
-  function land(impact){
+  function hit(impact){
     if (!AC || voice === 'off') return;
     const cfg = KIT[voice];
     const vel = clamp(impact / 1.6, 0.3, 1.15);
-    if (cfg.kind === 'bowed'){
-      if (sus){
-        const t = AC.currentTime;
-        sus.gain.gain.cancelScheduledValues(t);
-        sus.gain.gain.setTargetAtTime(cfg.level, t, cfg.attack * 0.35);
-      }
-      knock(vel * 820);
-    } else {
+    if (cfg.kind === 'bowed') knock(vel * 820);
+    else {
       strike(cfg, vel * 1.15);
       lastStrike = performance.now(); lastStrikeSemi = semi;
+    }
+  }
+
+  // the bow only comes back when the ball is actually lying on the glass
+  function settle(){
+    if (!AC || voice === 'off') return;
+    const cfg = KIT[voice];
+    if (cfg.kind === 'bowed' && sus){
+      const t = AC.currentTime;
+      sus.gain.gain.cancelScheduledValues(t);
+      sus.gain.gain.setTargetAtTime(cfg.level, t, cfg.attack * 0.35);
     }
   }
 
@@ -587,12 +592,18 @@
   // hgt is metres above the screen, vzz metres per second. Real tosses are a
   // few centimetres, so VIS exaggerates them for the eye; EYE is roughly how
   // far your face is from the glass, which is what sets the perspective.
-  const EYE = 0.34, VIS = 2.6, LIFT_MAX = 1.55, AIR = 0.0015;
+  // Height maps to apparent size through a curve that never flattens out: a
+  // hard cap made the ball pop to full size, sit there for most of the hop
+  // and pop back, which reads as two states rather than a height. HVIS is how
+  // far it may appear to rise, H0 how quickly the first centimetres show.
+  const EYE = 0.34, HVIS = 0.13, H0 = 0.055, AIR = 0.0015;
+  // vertical restitution: a ball that stops dead on the glass looks snatched
+  const ZBOUNCE = 0.34, ZSETTLE = 0.5;
   // True perspective would slide the ball outward by the full lift, which
   // throws it clean off a phone screen from anywhere near an edge. A third of
   // that keeps the parallax legible and the ball in play.
   const PARA = 0.32;
-  let hgt = 0, vzz = 0, airborne = false;
+  let hgt = 0, vzz = 0, airborne = false, hSmooth = 0;
 
   function stepHeight(dt){
     // fz is one gravity while the phone is held steady, and drops toward zero
@@ -603,15 +614,25 @@
     if (hgt <= 0){
       hgt = 0;
       if (airborne){
-        airborne = false;
         const impact = -vzz;
-        vzz = 0;
-        if (impact > 0.22) land(impact);
+        if (impact > ZSETTLE){
+          vzz = impact * ZBOUNCE;        // bounces, so still off the surface
+          hit(impact);
+        } else {
+          vzz = 0; airborne = false;
+          if (impact > 0.22) hit(impact);
+          settle();
+        }
       } else if (vzz < 0) vzz = 0;
     } else if (!airborne && hgt > AIR){
       airborne = true;
       liftOff();
     }
+    // A fast hop can cross a centimetre between two frames, which the eye
+    // reads as a jump. Follow the height rather than snapping to it; at 30ms
+    // the lag is invisible but the corners are rounded off.
+    hSmooth += (hgt - hSmooth) * (1 - Math.exp(-dt/0.03));
+    if (!airborne && hgt === 0 && hSmooth < 0.0008) hSmooth = 0;
   }
 
   function tossBall(){
@@ -685,7 +706,8 @@
     // Your eye is above the middle of the glass, so a ball that leaves the
     // surface swells and slides outward from the centre while its shadow
     // stays behind on the plane. That parallax is the whole 3D effect.
-    const lift = Math.min(LIFT_MAX, EYE / Math.max(0.06, EYE - hgt*VIS));
+    const hv = HVIS * (1 - Math.exp(-hSmooth / H0));
+    const lift = EYE / (EYE - hv);
     const off  = lift - 1;                       // 0 while it is touching
     const br = R * lift;
     const slide = 1 + off * PARA;
