@@ -123,7 +123,7 @@
 
 <div id="rack">
   <button id="enable">Enable tilt</button>
-  <p id="hint">No tilt sensor available here. Press and hold anywhere; the surface tips toward your finger and levels off when you let go.</p>
+  <p id="hint">No tilt sensor available here. Press and hold anywhere; the surface tips toward your finger and levels off when you let go. Double-tap, or press space, to toss the ball.</p>
   <div class="row">
     <button class="voice" data-v="violin">Violin</button>
     <button class="voice" data-v="piano">Piano</button>
@@ -137,7 +137,7 @@
 
 <div id="gate">
   <p class="lead">Hold the phone flat, then tilt to roll the ball.</p>
-  <p class="sub">Every color is a note of the D major scale; pick the instrument at the bottom.</p>
+  <p class="sub">Every color is a note of the D major scale. Flick the phone down to throw the ball off the surface — it only sounds while it is touching.</p>
   <button id="go">Start</button>
   <a class="home" href="/">psychard.com</a>
 </div>
@@ -312,7 +312,7 @@
       n.connect(hp); hp.connect(ng); ng.connect(lpf); n.start();
       nodes.push(n);
     }
-    out.gain.setTargetAtTime(cfg.level, t, cfg.attack);
+    out.gain.setTargetAtTime(airborne ? 0.0001 : cfg.level, t, cfg.attack);
     sus = { gain:out, lpf, oscs, nodes, cfg };
   }
 
@@ -349,6 +349,33 @@
     setTimeout(() => { try{ out.disconnect(); lpf.disconnect(); }catch(_){} }, (cfg.decay+0.3)*1000);
   }
 
+  // the ball is only touching the glass when it is on the glass
+  function liftOff(){
+    if (!AC || voice === 'off') return;
+    if (KIT[voice].kind === 'bowed' && sus){
+      const t = AC.currentTime;
+      sus.gain.gain.cancelScheduledValues(t);
+      sus.gain.gain.setTargetAtTime(0.0001, t, 0.035);
+    }
+  }
+
+  function land(impact){
+    if (!AC || voice === 'off') return;
+    const cfg = KIT[voice];
+    const vel = clamp(impact / 1.6, 0.3, 1.15);
+    if (cfg.kind === 'bowed'){
+      if (sus){
+        const t = AC.currentTime;
+        sus.gain.gain.cancelScheduledValues(t);
+        sus.gain.gain.setTargetAtTime(cfg.level, t, cfg.attack * 0.35);
+      }
+      knock(vel * 820);
+    } else {
+      strike(cfg, vel * 1.15);
+      lastStrike = performance.now(); lastStrikeSemi = semi;
+    }
+  }
+
   function selectVoice(name){
     voice = name;
     if (name !== 'off'){ try { localStorage.setItem(VOICE_KEY, name); } catch(_) {} }
@@ -373,13 +400,14 @@
     const cfg = KIT[voice];
     const speed = Math.hypot(ball.vx, ball.vy);
     if (cfg.kind === 'bowed'){
-      if (!sus) return;
+      if (!sus || airborne) return;
       const t = AC.currentTime, f = currentFreq();
       for (const {o,m} of sus.oscs) o.frequency.setTargetAtTime(f*m, t, 0.035);
       sus.lpf.frequency.setTargetAtTime(cfg.cutoff + Math.min(1500, speed*1.6), t, 0.1);
       sus.gain.gain.setTargetAtTime(cfg.level * (0.82 + Math.min(0.28, speed/1400)), t, 0.12);
     } else {
       // struck voices re-sound each time the ball reaches a new pitch
+      if (airborne) return;
       const now = performance.now();
       if (now - lastStrike > cfg.gap && Math.abs(semi - lastStrikeSemi) > 0.55){
         strike(cfg, 0.45 + Math.min(0.7, speed/900));
@@ -411,6 +439,7 @@
   const MAX_TILT = 30;
   let tiltX = 0, tiltY = 0, zeroX = 0, zeroY = 0;
   let haveSensor = false, pendingZero = true, denied = false;
+  let haveMotion = false, fz = 9.81, zAvg = 9.81;
   let touchMode = false, touchBound = false, touching = false;
   let targetX = 0, targetY = 0;
 
@@ -435,6 +464,17 @@
     tiltX = clamp(gx - zeroX, -50, 50);
     tiltY = clamp(gy - zeroY, -50, 50);
   }
+  function onMotion(e){
+    const a = e.accelerationIncludingGravity;
+    if (!a || a.z === null || a.z === undefined) return;
+    if (!haveMotion){ haveMotion = true; zAvg = a.z; }
+    // iOS and Android disagree on the sign of this axis, so read it off a
+    // slow average instead of trusting either: held steady, screen up, the
+    // magnitude is one gravity and the sign is whatever this device uses.
+    zAvg = zAvg * 0.98 + a.z * 0.02;
+    fz = (zAvg < -3 ? -1 : 1) * a.z;
+  }
+
   function setTarget(ev){
     targetX = clamp(((ev.clientX - W/2) / (W/2)) * MAX_TILT, -MAX_TILT, MAX_TILT);
     targetY = clamp(((ev.clientY - H/2) / (H/2)) * MAX_TILT, -MAX_TILT, MAX_TILT);
@@ -442,8 +482,12 @@
   function bindTouch(){
     if (touchBound) return;
     touchBound = true;
+    let lastTap = 0;
     window.addEventListener('pointerdown', e => {
       if (e.target.tagName === 'BUTTON') return;
+      const now = performance.now();
+      if (now - lastTap < 330) tossBall();
+      lastTap = now;
       touching = true; setTarget(e);
     });
     window.addEventListener('pointermove', e => { if (touching) setTarget(e); });
@@ -451,6 +495,7 @@
     window.addEventListener('pointerup', release);
     window.addEventListener('pointercancel', release);
     window.addEventListener('keydown', e => {
+      if (e.key === ' ' || e.code === 'Space'){ e.preventDefault(); tossBall(); }
       if (e.key === 'ArrowLeft')  { targetX = -22; touching = true; }
       if (e.key === 'ArrowRight') { targetX =  22; touching = true; }
       if (e.key === 'ArrowUp')    { targetY = -22; touching = true; }
@@ -477,12 +522,14 @@
     if (!DOE) return false;
     if (typeof DOE.requestPermission !== 'function'){
       window.addEventListener('deviceorientation', onOrient, true);
+      await askMotionEvents();
       return true;
     }
     let res = 'denied';
     try { res = await DOE.requestPermission(); } catch(_) {}
     if (res === 'granted'){
       window.addEventListener('deviceorientation', onOrient, true);
+      await askMotionEvents();
       denied = false;
       return true;
     }
@@ -490,8 +537,18 @@
     return false;
   }
 
+  // tilt and toss are two different sensors behind one iOS setting
+  async function askMotionEvents(){
+    const DME = window.DeviceMotionEvent;
+    if (!DME) return;
+    if (typeof DME.requestPermission === 'function'){
+      try { if (await DME.requestPermission() !== 'granted') return; } catch(_) { return; }
+    }
+    window.addEventListener('devicemotion', onMotion, true);
+  }
+
   const NO_SENSOR = hint.textContent;
-  const DECLINED  = 'Motion access was turned down, so tilt is off. Use the button above, or press and hold anywhere to tip the surface toward your finger.';
+  const DECLINED  = 'Motion access was turned down, so tilt is off. Use the button above, or press and hold anywhere to tip the surface toward your finger. Double-tap to toss the ball.';
   const STUCK     = 'Safari is still refusing motion access. Reload the page to be asked again, or switch on Settings \u203A Safari \u203A Motion & Orientation Access.';
 
   enableBtn.addEventListener('click', async () => {
@@ -523,7 +580,44 @@
     pendingZero = true;
     tiltX = tiltY = targetX = targetY = 0;
     ball.vx = ball.vy = 0; ball.x = W/2; ball.y = H/2;
+    hgt = 0; vzz = 0; airborne = false;
   });
+
+  // ---- height off the glass ---------------------------------------------
+  // hgt is metres above the screen, vzz metres per second. Real tosses are a
+  // few centimetres, so VIS exaggerates them for the eye; EYE is roughly how
+  // far your face is from the glass, which is what sets the perspective.
+  const EYE = 0.34, VIS = 2.6, LIFT_MAX = 1.55, AIR = 0.0015;
+  // True perspective would slide the ball outward by the full lift, which
+  // throws it clean off a phone screen from anywhere near an edge. A third of
+  // that keeps the parallax legible and the ball in play.
+  const PARA = 0.32;
+  let hgt = 0, vzz = 0, airborne = false;
+
+  function stepHeight(dt){
+    // fz is one gravity while the phone is held steady, and drops toward zero
+    // (or below) the instant you snatch the phone downward — that is when the
+    // surface falls away from the ball and it is left behind in the air.
+    vzz -= fz * dt;
+    hgt = Math.min(0.5, hgt + vzz * dt);
+    if (hgt <= 0){
+      hgt = 0;
+      if (airborne){
+        airborne = false;
+        const impact = -vzz;
+        vzz = 0;
+        if (impact > 0.22) land(impact);
+      } else if (vzz < 0) vzz = 0;
+    } else if (!airborne && hgt > AIR){
+      airborne = true;
+      liftOff();
+    }
+  }
+
+  function tossBall(){
+    if (airborne) return;
+    vzz = 0.9; hgt = AIR * 1.5;
+  }
 
   // ---- physics ----------------------------------------------------------
   const G = 1650, ROLL = 5/7, DEAD = 0.9, BOUNCE = 0.52, DRAG = 0.9;
@@ -536,14 +630,21 @@
       if (!touching && Math.abs(tiltX) < 0.4) tiltX = 0;
       if (!touching && Math.abs(tiltY) < 0.4) tiltY = 0;
     }
-    const ax = Math.abs(tiltX) < DEAD ? 0 : ROLL * G * Math.sin(tiltX * Math.PI/180);
-    const ay = Math.abs(tiltY) < DEAD ? 0 : ROLL * G * Math.sin(tiltY * Math.PI/180);
+    stepHeight(dt);
+
+    // a ball in the air has nothing to roll against: full gravity, no drag
+    const roll = airborne ? 1 : ROLL;
+    const dead = airborne ? 0 : DEAD;
+    const ax = Math.abs(tiltX) < dead ? 0 : roll * G * Math.sin(tiltX * Math.PI/180);
+    const ay = Math.abs(tiltY) < dead ? 0 : roll * G * Math.sin(tiltY * Math.PI/180);
 
     ball.vx += ax * dt; ball.vy += ay * dt;
-    const damp = Math.exp(-DRAG * dt);
-    ball.vx *= damp; ball.vy *= damp;
-    if (ax === 0 && Math.abs(ball.vx) < 5) ball.vx = 0;
-    if (ay === 0 && Math.abs(ball.vy) < 5) ball.vy = 0;
+    if (!airborne){
+      const damp = Math.exp(-DRAG * dt);
+      ball.vx *= damp; ball.vy *= damp;
+      if (ax === 0 && Math.abs(ball.vx) < 5) ball.vx = 0;
+      if (ay === 0 && Math.abs(ball.vy) < 5) ball.vy = 0;
+    }
 
     const px = ball.x, py = ball.y;
     ball.x += ball.vx * dt; ball.y += ball.vy * dt;
@@ -555,7 +656,7 @@
     if (ball.y > H-R){ hit = Math.max(hit, Math.abs(ball.vy)); ball.y = H-R; ball.vy = -Math.abs(ball.vy) * BOUNCE; }
     if (hit > 90) knock(hit);
 
-    spin(ball.x - px, ball.y - py);
+    if (!airborne) spin(ball.x - px, ball.y - py);
   }
 
   function spin(dx, dy){
@@ -580,39 +681,55 @@
   function draw(){
     ctx.clearRect(0,0,W,H);
     const lean = Math.min(1, Math.hypot(tiltX, tiltY)/40);
-    const sx = ball.x + (tiltX/40) * R * 0.5;
-    const sy = ball.y + (tiltY/40) * R * 0.5 + R*0.14;
+
+    // Your eye is above the middle of the glass, so a ball that leaves the
+    // surface swells and slides outward from the centre while its shadow
+    // stays behind on the plane. That parallax is the whole 3D effect.
+    const lift = Math.min(LIFT_MAX, EYE / Math.max(0.06, EYE - hgt*VIS));
+    const off  = lift - 1;                       // 0 while it is touching
+    const br = R * lift;
+    const slide = 1 + off * PARA;
+    const bx = clamp(W/2 + (ball.x - W/2) * slide, br*0.4, W - br*0.4);
+    const by = clamp(H/2 + (ball.y - H/2) * slide, br*0.4, H - br*0.4);
+
     const col = mixedColor();
     const rgb = col[0]+','+col[1]+','+col[2];
 
+    // Shadow: stays on the plane, spreads and softens with height, and slides
+    // down-right away from the light the highlight already implies — which is
+    // what separates ball from shadow even when the ball is dead centre and
+    // the parallax has nothing to work with.
+    const sx = ball.x + (tiltX/40) * R * 0.5 + off * R * 1.25;
+    const sy = ball.y + (tiltY/40) * R * 0.5 + R*0.14 + off * R * 1.45;
     ctx.save();
-    ctx.globalAlpha = 0.3 - lean*0.08;
+    ctx.globalAlpha = Math.max(0.08, (0.3 - lean*0.08) * (1 - off*0.55));
     ctx.fillStyle = '#000';
-    ctx.filter = 'blur(' + (R*0.28).toFixed(1) + 'px)';
+    ctx.filter = 'blur(' + (R*(0.28 + off*2.4)).toFixed(1) + 'px)';
     ctx.beginPath();
-    ctx.ellipse(sx, sy, R*1.02, R*0.94, 0, 0, Math.PI*2);
+    ctx.ellipse(sx, sy, R*(1.02 + off*2.1), R*(0.94 + off*2.1), 0, 0, Math.PI*2);
     ctx.fill();
     ctx.restore();
 
+    // the glow is the screen's light on the ball, so it dies with the contact
     ctx.save();
-    const halo = ctx.createRadialGradient(ball.x, ball.y, R*0.85, ball.x, ball.y, R*2.0);
-    halo.addColorStop(0, 'rgba('+rgb+',0.5)');
+    const halo = ctx.createRadialGradient(bx, by, br*0.85, bx, by, br*2.0);
+    halo.addColorStop(0, 'rgba('+rgb+',' + (0.5/(1 + off*5)).toFixed(3) + ')');
     halo.addColorStop(1, 'rgba('+rgb+',0)');
     ctx.beginPath();
-    ctx.arc(ball.x, ball.y, R*2.0, 0, Math.PI*2);
+    ctx.arc(bx, by, br*2.0, 0, Math.PI*2);
     ctx.fillStyle = halo;
     ctx.fill();
     ctx.restore();
 
     const g = ctx.createRadialGradient(
-      ball.x - R*0.35, ball.y - R*0.4, R*0.08,
-      ball.x, ball.y, R*1.06
+      bx - br*0.35, by - br*0.4, br*0.08,
+      bx, by, br*1.06
     );
     g.addColorStop(0,   '#5c5f6b');
     g.addColorStop(0.42,'#26272e');
     g.addColorStop(1,   '#0c0c10');
     ctx.beginPath();
-    ctx.arc(ball.x, ball.y, R, 0, Math.PI*2);
+    ctx.arc(bx, by, br, 0, Math.PI*2);
     ctx.fillStyle = g;
     ctx.fill();
 
@@ -624,7 +741,7 @@
       const x = M[0]*p[0] + M[1]*p[1] + M[2]*p[2];
       const y = M[3]*p[0] + M[4]*p[1] + M[5]*p[2];
       ctx.beginPath();
-      ctx.arc(ball.x + x*R*0.9, ball.y + y*R*0.9, R*0.085*z + R*0.02, 0, Math.PI*2);
+      ctx.arc(bx + x*br*0.9, by + y*br*0.9, br*0.085*z + br*0.02, 0, Math.PI*2);
       ctx.fillStyle = 'rgba(255,255,255,' + (0.16*z).toFixed(3) + ')';
       ctx.fill();
     }
@@ -633,33 +750,34 @@
     ctx.save();
     ctx.globalAlpha = 0.75;
     const h = ctx.createRadialGradient(
-      ball.x - R*0.34, ball.y - R*0.4, 0,
-      ball.x - R*0.34, ball.y - R*0.4, R*0.62
+      bx - br*0.34, by - br*0.4, 0,
+      bx - br*0.34, by - br*0.4, br*0.62
     );
     h.addColorStop(0, 'rgba(255,255,255,.9)');
     h.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.beginPath();
-    ctx.arc(ball.x, ball.y, R, 0, Math.PI*2);
+    ctx.arc(bx, by, br, 0, Math.PI*2);
     ctx.fillStyle = h;
     ctx.fill();
     ctx.restore();
 
     ctx.beginPath();
-    ctx.arc(ball.x, ball.y, R-0.6, 0, Math.PI*2);
+    ctx.arc(bx, by, br-0.6, 0, Math.PI*2);
     ctx.strokeStyle = 'rgba(255,255,255,.24)';
     ctx.lineWidth = 1.2;
     ctx.stroke();
 
-    const a = clamp((domW - 0.7) / 0.22, 0, 1);
+    // no contact, no note
+    const a = clamp((domW - 0.7) / 0.22, 0, 1) * Math.max(0, 1 - off*6);
     if (a > 0.01){
       ctx.save();
       ctx.globalAlpha = a;
-      ctx.font = '600 ' + (R*0.95).toFixed(0) + 'px "Helvetica Neue",Helvetica,Arial,sans-serif';
+      ctx.font = '600 ' + (br*0.95).toFixed(0) + 'px "Helvetica Neue",Helvetica,Arial,sans-serif';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#fff';
       ctx.shadowColor = 'rgba(0,0,0,.45)';
       ctx.shadowBlur = 10;
-      ctx.fillText(NOTES[domIdx].n, ball.x, ball.y - R*1.5);
+      ctx.fillText(NOTES[domIdx].n, bx, by - br*1.5);
       ctx.restore();
     }
   }
