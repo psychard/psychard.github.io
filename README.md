@@ -15,15 +15,19 @@ icons. No build step, no dependencies, nothing to install.
 
 Some games live in this repo rather than elsewhere: a folder with an
 `index.html` inside, served at `https://www.psychard.com/<folder>/`. `tilt/`
-(Tilt Ball) and `arboretum/` (The Painted Arboretum) are the two. Anything
-needing a phone sensor (motion, camera, mic) has to be served over HTTPS, which
-this domain is, so hosting it here is the easy route.
+(Tilt Ball) is the one. Anything needing a phone sensor (motion, camera, mic)
+has to be served over HTTPS, which this domain is, so hosting it here is the
+easy route.
 
-Each of those folders is self-contained: one `index.html`, a `manifest.json` so
-it can be installed to a home screen, and a `vendor/` folder for anything it
-would otherwise fetch from someone else's CDN. The arboretum carries three.js
-(MIT) and the Architects Daughter typeface (SIL Open Font License) that way, so
-the game keeps working offline and makes no third-party requests.
+Such a folder is self-contained: one `index.html`, a `manifest.json` so it can
+be installed to a home screen, and, if it needs one, a `vendor/` folder for
+anything it would otherwise fetch from someone else's CDN.
+
+A game that outgrows a folder can move to its own repo and a subdomain, as
+The Painted Arboretum did: it lives in
+[psychard/arboretum](https://github.com/psychard/arboretum) and is served at
+[arboretum.psychard.com](https://arboretum.psychard.com/). Only its card icon,
+`icons/arboretum.png`, stays here.
 
 ## Deploys
 
